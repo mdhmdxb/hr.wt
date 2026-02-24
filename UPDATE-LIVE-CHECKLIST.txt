@@ -1,0 +1,39 @@
+================================================================================
+WISE HRM – UPDATE LIVE SITE CHECKLIST (use this each time you push changes)
+================================================================================
+
+BEFORE YOU START
+  [ ] You have made and tested your changes locally (WAMP/XAMPP).
+  [ ] You know how you upload: FTP/SFTP, File Manager, or Git (see DEPLOY-CPANEL.md).
+
+STEP 1 – UPLOAD FILES
+  [ ] Upload only changed files/folders. Do NOT overwrite on the server:
+        – .env
+        – vendor/ (unless you run composer on server after upload)
+        – storage/app/* (user uploads, logs, owner.enc, installed lock)
+  [ ] If you added new migrations: upload database/migrations/*.php
+  [ ] If you changed composer.json or added packages: upload composer.json (and composer.lock if you use it)
+
+STEP 2 – RUN COMMANDS ON SERVER (SSH or cPanel Terminal)
+  Go to project root (e.g. cd ~/wise-hrm), then:
+
+  [ ] composer install --no-dev --optimize-autoloader
+        (only if you changed composer.json or composer.lock; otherwise skip)
+
+  [ ] php artisan migrate --force
+
+  [ ] php artisan config:cache
+
+  [ ] php artisan view:clear
+
+STEP 3 – CHECK
+  [ ] Open https://yourdomain.com and log in.
+  [ ] Test the feature you changed.
+
+================================================================================
+Quick copy-paste (after cd to project root):
+  composer install --no-dev --optimize-autoloader
+  php artisan migrate --force
+  php artisan config:cache
+  php artisan view:clear
+================================================================================

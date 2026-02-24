@@ -1,0 +1,31 @@
+# Wise HRM – Exclude these when uploading to cPanel (FTP/rsync)
+# Use this list so you don’t overwrite server-only or generated files.
+
+# Environment (server has its own .env)
+.env
+.env.backup
+.env.production
+
+# Dependencies (run composer install on server)
+vendor/
+
+# Front-end build (not needed if you don’t use npm build)
+node_modules/
+public/build
+public/hot
+
+# Generated / local-only (server creates its own)
+storage/wise_hrm_installed.lock
+storage/app/owner.enc
+storage/*.key
+public/storage
+
+# IDE / OS
+.idea
+.vscode
+.fleet
+.DS_Store
+Thumbs.db
+
+# Optional: keep these if you use Git on server
+# .git
