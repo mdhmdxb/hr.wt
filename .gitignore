@@ -19,3 +19,5 @@ yarn-error.log
 *.lock
 storage/wise_hrm_installed.lock
 storage/app/owner.enc
+
+storage/logs/*.log
