@@ -2,12 +2,17 @@
 
 namespace Modules\Payroll\Http\Controllers;
 
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Storage;
 use Modules\Attendance\Models\Attendance;
 use Modules\Core\Models\Employee;
+use Modules\Core\Models\PublicHoliday;
 use Modules\Payroll\Models\PayrollRun;
 use Modules\Payroll\Models\Payslip;
+use Modules\Settings\Http\Controllers\SettingsController;
+use Modules\Settings\Models\Setting as SettingsSetting;
 
 class PayrollController extends Controller
 {
@@ -85,10 +90,22 @@ class PayrollController extends Controller
         return redirect()->route('payroll.show', $run)->with('success', 'Payroll run created with ' . $employees->count() . ' payslips.');
     }
 
-    public function show(PayrollRun $payroll)
+    public function show(Request $request, PayrollRun $payroll)
     {
         $payroll->load(['payslips.employee']);
-        return view('payroll::show', compact('payroll'));
+        $allPayslips = $payroll->payslips;
+        $employeeOptions = $allPayslips->map(fn ($ps) => $ps->employee)->filter()->unique('id')->sortBy('first_name');
+        $selectedIds = collect($request->input('employees', []))->map(fn ($v) => (int) $v)->filter()->all();
+        $payslips = $allPayslips;
+        if (! empty($selectedIds)) {
+            $payslips = $allPayslips->whereIn('employee_id', $selectedIds);
+        }
+        $payroll->setRelation('payslips', $payslips->values());
+        return view('payroll::show', [
+            'payroll' => $payroll,
+            'employeeOptions' => $employeeOptions,
+            'selectedEmployeeIds' => $selectedIds,
+        ]);
     }
 
     public function finalize(PayrollRun $payroll)
@@ -106,7 +123,29 @@ class PayrollController extends Controller
         if (empty($payslip->verification_token)) {
             $payslip->update(['verification_token' => \Illuminate\Support\Str::random(48)]);
         }
-        return view('payroll::payslip', compact('payslip'));
+        [$offDayWorkHours, $offDayWorkDetails] = self::computeOffDayWorkHours(
+            $payslip->employee,
+            $payslip->payrollRun->period_start,
+            $payslip->payrollRun->period_end
+        );
+        $payslipDisplayRaw = SettingsSetting::getValue('payslip_display', null);
+        $payslipDisplay = is_string($payslipDisplayRaw) ? (json_decode($payslipDisplayRaw, true) ?: array_keys(SettingsController::payslipDisplayKeys())) : array_keys(SettingsController::payslipDisplayKeys());
+        $letterFooterText = SettingsSetting::getValue('letter_footer_text');
+        if (! is_string($letterFooterText) || trim($letterFooterText) === '') {
+            $letterFooterText = SettingsController::defaultLetterFooterText();
+        }
+        $documentStampOn = json_decode(SettingsSetting::getValue('document_stamp_on', '[]') ?: '[]', true) ?: [];
+        $stampImageUrl = null;
+        $showStamp = false;
+        if (in_array('payslip', $documentStampOn, true)) {
+            $stampPath = SettingsSetting::getValue('company_stamp_path');
+            if ($stampPath) {
+                // Always expose the public URL; if storage link is missing the browser will show a broken image, which helps diagnose.
+                $stampImageUrl = asset('storage/' . ltrim($stampPath, '/'));
+                $showStamp = true;
+            }
+        }
+        return view('payroll::payslip', compact('payslip', 'offDayWorkHours', 'offDayWorkDetails', 'payslipDisplay', 'letterFooterText', 'showStamp', 'stampImageUrl'));
     }
 
     public function payslipQr(Payslip $payslip)
@@ -125,7 +164,12 @@ class PayrollController extends Controller
         if ($payslip->payrollRun->status !== PayrollRun::STATUS_DRAFT) {
             return redirect()->route('payroll.show', $payslip->payrollRun)->with('error', 'Only draft runs can be edited.');
         }
-        return view('payroll::edit-payslip', compact('payslip'));
+        [$offDayWorkHours, $offDayWorkDetails] = self::computeOffDayWorkHours(
+            $payslip->employee,
+            $payslip->payrollRun->period_start,
+            $payslip->payrollRun->period_end
+        );
+        return view('payroll::edit-payslip', compact('payslip', 'offDayWorkHours', 'offDayWorkDetails'));
     }
 
     public function updatePayslip(Request $request, Payslip $payslip)
@@ -186,5 +230,42 @@ class PayrollController extends Controller
             'remarks' => $request->filled('remarks') ? $request->remarks : null,
         ]);
         return redirect()->route('payroll.show', $payslip->payrollRun)->with('success', 'Payslip updated.');
+    }
+
+    /**
+     * Compute hours worked on off days (public holiday, weekly off, alt. Saturday) in the given period.
+     * Returns [totalHours, details] where details is array of ['date' => 'Y-m-d', 'hours' => float, 'label' => string].
+     */
+    public static function computeOffDayWorkHours(Employee $employee, $periodStart, $periodEnd): array
+    {
+        $start = Carbon::parse($periodStart)->startOfDay();
+        $end = Carbon::parse($periodEnd)->endOfDay();
+        $attendances = Attendance::where('employee_id', $employee->id)
+            ->whereBetween('date', [$start->format('Y-m-d'), $end->format('Y-m-d')])
+            ->whereIn('status', [Attendance::STATUS_PRESENT, Attendance::STATUS_HALF_DAY])
+            ->orderBy('date')
+            ->get();
+
+        $totalHours = 0.0;
+        $details = [];
+        foreach ($attendances as $att) {
+            $date = $att->date instanceof Carbon ? $att->date : Carbon::parse($att->date);
+            $isHoliday = PublicHoliday::isHoliday($date);
+            $isWeeklyOff = $employee->isWeeklyOffDay($date);
+            $isAltSat = $employee->isAlternateSaturdayOffDay($date);
+            if (! $isHoliday && ! $isWeeklyOff && ! $isAltSat) {
+                continue;
+            }
+            $label = $isHoliday ? 'Public holiday' : ($isAltSat ? 'Alt. Saturday off' : 'Weekly off');
+            $hours = 0.0;
+            if (! empty($att->check_in_at) && ! empty($att->check_out_at)) {
+                $in = Carbon::parse($att->date->format('Y-m-d') . ' ' . $att->check_in_at);
+                $out = Carbon::parse($att->date->format('Y-m-d') . ' ' . $att->check_out_at);
+                $hours = round(max(0, $out->diffInMinutes($in) / 60), 2);
+            }
+            $totalHours += $hours;
+            $details[] = ['date' => $date->format('Y-m-d'), 'hours' => $hours, 'label' => $label];
+        }
+        return [round($totalHours, 2), $details];
     }
 }

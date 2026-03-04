@@ -64,6 +64,19 @@ class Setting extends Model
         ];
     }
 
+    /** Module keys grouped for Owner portal (group label => array of module keys). */
+    public static function moduleGroups(): array
+    {
+        $keys = self::moduleKeys();
+        return [
+            'People' => ['employees', 'designations', 'documents', 'recruitment'],
+            'Time' => ['attendance', 'leave'],
+            'Finance' => ['payroll'],
+            'Organization' => ['companies', 'branches', 'sites', 'projects'],
+            'Assets & reports' => ['assets', 'reports', 'templates'],
+        ];
+    }
+
     /** Check if a module/feature is enabled (global: company_id null). */
     public static function isModuleEnabled(string $module, ?int $companyId = null): bool
     {

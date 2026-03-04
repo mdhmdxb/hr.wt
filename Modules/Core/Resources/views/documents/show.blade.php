@@ -24,6 +24,7 @@
             @endif
         </dd></div>
         <div><dt class="text-sm text-slate-500 dark:text-slate-400">Uploaded</dt><dd class="font-medium text-slate-900 dark:text-slate-100">{{ $document->uploaded_at?->format('Y-m-d H:i') ?? '—' }} @if($document->uploadedByUser) by {{ $document->uploadedByUser->name }} @endif</dd></div>
+        <div><dt class="text-sm text-slate-500 dark:text-slate-400">Employee can upload replacement</dt><dd class="font-medium text-slate-900 dark:text-slate-100">{{ $document->employee_can_upload_again ? 'Yes (one more upload allowed)' : 'No (locked)' }}</dd></div>
         @if($document->notes)
         <div class="sm:col-span-2"><dt class="text-sm text-slate-500 dark:text-slate-400">Notes</dt><dd class="font-medium text-slate-900 dark:text-slate-100">{{ $document->notes }}</dd></div>
         @endif

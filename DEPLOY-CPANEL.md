@@ -270,10 +270,10 @@ echo "Update done."
 
 | Task              | What to do |
 |-------------------|------------|
-| First install     | Upload project → set document root to `public` → create `.env` → composer install → key:generate → storage:link → chmod storage & bootstrap/cache → open /install |
-| Update after edit | Upload changed files (no .env, no overwrite storage content) → run: composer install (if needed), migrate --force, config:cache, view:clear |
+| First install     | Upload project → set document root to `public` → create `.env` → composer install → key:generate → storage:link → chmod storage & bootstrap/cache → open /install                            |
+| Update after edit | Upload changed files (no .env, no overwrite storage content) → run: composer install (if needed), migrate --force, config:cache, view:clear                                                 |
 | Don’t overwrite   | `.env`, `storage/app/*` (user uploads, logs, lock files, owner.enc) |
-| Document root     | Must be `wise-hrm/public` (or your folder’s `public`) |
+| Document root     | Must be `wise-hrm/public` (or your folder’s `public`)               |
 
 ---
 

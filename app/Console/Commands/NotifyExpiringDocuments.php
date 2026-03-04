@@ -30,7 +30,7 @@ class NotifyExpiringDocuments extends Command
             return self::SUCCESS;
         }
 
-        $recipients = User::whereIn('role', [User::ROLE_ADMIN, User::ROLE_HR])->get();
+        $recipients = User::whereIn('role', [User::ROLE_ADMIN, User::ROLE_MANAGEMENT, User::ROLE_HR])->get();
 
         foreach ($recipients as $user) {
             $user->notify(new DocumentExpiringSoonNotification($expiring));

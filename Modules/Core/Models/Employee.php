@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Modules\Leave\Models\LeaveRequest;
 
 class Employee extends Model
 {
@@ -15,13 +16,22 @@ class Employee extends Model
         'first_name',
         'last_name',
         'email',
+        'photo_path',
         'phone',
+        'nationality',
+        'gender',
+        'religion',
+        'permanent_address',
+        'emergency_contact_name',
+        'emergency_contact_phone',
         'branch_id',
         'site_id',
         'department_id',
+        'approval_level',
         'designation_id',
         'reporting_manager_id',
         'hire_date',
+        'date_of_birth',
         'employment_type',
         'basic_salary',
         'accommodation',
@@ -33,16 +43,35 @@ class Employee extends Model
         'alternate_saturday_weeks',
         'shift_start',
         'shift_end',
+        'break_minutes',
+        'remaining_leave',
     ];
 
     protected $casts = [
         'hire_date' => 'date',
+        'date_of_birth' => 'date',
         'basic_salary' => 'decimal:2',
         'accommodation' => 'decimal:2',
         'transportation' => 'decimal:2',
         'food_allowance' => 'decimal:2',
         'other_allowances' => 'decimal:2',
+        'remaining_leave' => 'decimal:2',
+    ];
+
+    /** Common religions for dropdown. */
+    public static function religionOptions(): array
+    {
+        return [
+            '' => '— Select —',
+            'Islam' => 'Islam',
+            'Christianity' => 'Christianity',
+            'Hinduism' => 'Hinduism',
+            'Buddhism' => 'Buddhism',
+            'Sikhism' => 'Sikhism',
+            'Judaism' => 'Judaism',
+            'Other' => 'Other',
         ];
+    }
 
     /** Weekday names as used in weekly_off_days (lowercase). */
     public static function weekdayKeys(): array
@@ -154,5 +183,59 @@ class Employee extends Model
     public function getFullNameAttribute(): string
     {
         return trim("{$this->first_name} {$this->last_name}");
+    }
+
+    /**
+     * Approximate UAE/MOHRE annual leave entitlement (days) as of a given date.
+     *  - First 6 months: 0 days
+     *  - 6–12 months: 2 days per completed month after 6 months
+     *  - After 12 months: 30 days per completed year of service
+     */
+    public function uaeAnnualLeaveEntitlement(?Carbon $asOf = null): int
+    {
+        if (! $this->hire_date) {
+            return 0;
+        }
+        $asOf = $asOf ?: Carbon::today();
+        if ($asOf->lt($this->hire_date)) {
+            return 0;
+        }
+        $months = $this->hire_date->diffInMonths($asOf);
+        if ($months <= 6) {
+            return 0;
+        }
+        if ($months <= 12) {
+            return max(0, ($months - 6) * 2);
+        }
+        $years = intdiv($months, 12);
+        return $years * 30;
+    }
+
+    /**
+     * Annual leave days taken (approved) up to a given date, counting only
+     * leave types named "Annual Leave" (case-insensitive).
+     */
+    public function uaeAnnualLeaveTaken(?Carbon $asOf = null): int
+    {
+        $asOf = $asOf ?: Carbon::today();
+        $total = LeaveRequest::where('employee_id', $this->id)
+            ->where('status', LeaveRequest::STATUS_APPROVED)
+            ->whereDate('end_date', '<=', $asOf->toDateString())
+            ->whereHas('leaveType', function ($q) {
+                $q->whereRaw('LOWER(name) = ?', ['annual leave']);
+            })
+            ->sum('days');
+        return (int) $total;
+    }
+
+    /**
+     * Remaining annual leave under UAE/MOHRE rules (entitlement - taken).
+     */
+    public function uaeAnnualLeaveRemaining(?Carbon $asOf = null): int
+    {
+        $asOf = $asOf ?: Carbon::today();
+        $entitled = $this->uaeAnnualLeaveEntitlement($asOf);
+        $taken = $this->uaeAnnualLeaveTaken($asOf);
+        return max(0, $entitled - $taken);
     }
 }

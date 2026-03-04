@@ -4,7 +4,7 @@
 @section('heading', 'Submit Leave Request')
 
 @section('content')
-<form method="POST" action="{{ route('leave.store') }}" class="max-w-xl space-y-4">
+<form method="POST" action="{{ route('leave.store') }}" class="max-w-xl space-y-4" enctype="multipart/form-data">
     @csrf
     <div class="bg-white dark:bg-slate-800 rounded-xl shadow p-6 space-y-4">
         <div>
@@ -41,6 +41,12 @@
         <div>
             <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Reason (optional)</label>
             <textarea name="reason" rows="2" class="w-full rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white px-3 py-2">{{ old('reason') }}</textarea>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Supporting document</label>
+            <input type="file" name="document" class="w-full rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white px-3 py-2 text-sm">
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">If the selected leave type requires proof (e.g. medical certificate), please upload it here.</p>
+            @error('document')<p class="text-red-600 text-sm mt-1">{{ $message }}</p>@enderror
         </div>
         <div class="flex gap-2">
             <button type="submit" class="px-4 py-2 wise-btn text-white rounded-lg">Submit Request</button>

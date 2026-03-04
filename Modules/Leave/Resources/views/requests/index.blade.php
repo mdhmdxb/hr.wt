@@ -7,7 +7,10 @@
 <div class="mb-4 flex flex-wrap items-center gap-4">
     <a href="{{ route('leave.create') }}" class="inline-flex items-center px-4 py-2 wise-btn text-white rounded-lg">Submit Leave Request</a>
     <a href="{{ route('leave.calendar') }}" class="px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-700 dark:text-slate-300">Calendar</a>
-    <a href="{{ route('leave.types.index') }}" class="px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-700 dark:text-slate-300">Manage Leave Types</a>
+    @php $user = auth()->user(); @endphp
+    @if($user && ($user->isAdmin() || $user->isHr()))
+        <a href="{{ route('leave.types.index') }}" class="px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-700 dark:text-slate-300">Manage Leave Types</a>
+    @endif
     <form method="GET" action="{{ route('leave.index') }}" class="flex flex-wrap gap-2 items-end">
         <div>
             <label class="block text-xs text-slate-500 dark:text-slate-400 mb-0.5">Employee</label>

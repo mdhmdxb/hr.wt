@@ -27,17 +27,21 @@ class LeaveApprovalStep extends Model
     public const STATUS_REJECTED = 'rejected';
 
     public const APPROVER_REPORTING_MANAGER = 'reporting_manager';
+    public const APPROVER_DEPARTMENT_HEAD = 'department_head';
     public const APPROVER_HR = 'hr';
     public const APPROVER_ACCOUNTS = 'accounts';
     public const APPROVER_ADMIN = 'admin';
+    public const APPROVER_OWNER = 'owner';
 
     public static function approverTypeOptions(): array
     {
         return [
             self::APPROVER_REPORTING_MANAGER => 'Reporting Manager',
+            self::APPROVER_DEPARTMENT_HEAD => 'Department Head (same dept, level 0)',
             self::APPROVER_HR => 'HR',
             self::APPROVER_ACCOUNTS => 'Accounts',
             self::APPROVER_ADMIN => 'Admin',
+            self::APPROVER_OWNER => 'MD / Owner',
         ];
     }
 

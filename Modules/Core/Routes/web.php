@@ -14,10 +14,23 @@ Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard
 Route::middleware('role.owner')->prefix('owner')->name('owner.')->group(function () {
     Route::get('/', [\Modules\Core\Http\Controllers\OwnerController::class, 'index'])->name('index');
     Route::post('/modules', [\Modules\Core\Http\Controllers\OwnerController::class, 'updateModules'])->name('modules.update');
+    Route::post('/options', [\Modules\Core\Http\Controllers\OwnerController::class, 'updateOptions'])->name('options.update');
+});
+
+Route::middleware(['auth', 'role.admin'])->prefix('users')->name('users.')->group(function () {
+    Route::get('/', [\Modules\Core\Http\Controllers\UserAdminController::class, 'index'])->name('index');
+    Route::post('/', [\Modules\Core\Http\Controllers\UserAdminController::class, 'update'])->name('update');
 });
 Route::middleware('auth')->post('/notifications/mark-read', [\Modules\Core\Http\Controllers\NotificationController::class, 'markRead'])->name('notifications.mark-read');
 Route::middleware('auth')->get('/notifications/{id}/read', [\Modules\Core\Http\Controllers\NotificationController::class, 'readAndRedirect'])->name('notifications.read');
 Route::middleware('auth')->get('/notifications', [\Modules\Core\Http\Controllers\NotificationController::class, 'index'])->name('notifications.index');
+Route::middleware('auth')->prefix('profile')->name('profile.')->group(function () {
+    Route::get('/', [\Modules\Core\Http\Controllers\ProfileController::class, 'edit'])->name('edit');
+    Route::post('/', [\Modules\Core\Http\Controllers\ProfileController::class, 'update'])->name('update');
+    Route::post('/signature', [\Modules\Core\Http\Controllers\ProfileController::class, 'updateSignature'])->name('signature.update');
+});
+Route::middleware('auth')->get('/account/password', [\Modules\Core\Http\Controllers\PasswordController::class, 'edit'])->name('password.edit');
+Route::middleware('auth')->put('/account/password', [\Modules\Core\Http\Controllers\PasswordController::class, 'update'])->name('password.update');
 Route::get('/dashboard/executive', [\Modules\Core\Http\Controllers\ExecutiveDashboardController::class, 'index'])->name('dashboard.executive')->middleware('role.admin');
 Route::get('/about', [AboutController::class, 'index'])->name('about');
 Route::get('/app/logo', [CompanyLogoController::class, 'show'])->name('app.logo');
@@ -57,6 +70,15 @@ Route::middleware('role.admin')->prefix('sites')->name('site.')->group(function 
     Route::delete('/{site}', [\Modules\Core\Http\Controllers\SiteController::class, 'destroy'])->name('destroy');
 });
 
+Route::middleware('role.hr')->prefix('departments')->name('department.')->group(function () {
+    Route::get('/', [\Modules\Core\Http\Controllers\DepartmentController::class, 'index'])->name('index');
+    Route::get('/create', [\Modules\Core\Http\Controllers\DepartmentController::class, 'create'])->name('create');
+    Route::post('/', [\Modules\Core\Http\Controllers\DepartmentController::class, 'store'])->name('store');
+    Route::get('/{department}/edit', [\Modules\Core\Http\Controllers\DepartmentController::class, 'edit'])->name('edit');
+    Route::put('/{department}', [\Modules\Core\Http\Controllers\DepartmentController::class, 'update'])->name('update');
+    Route::delete('/{department}', [\Modules\Core\Http\Controllers\DepartmentController::class, 'destroy'])->name('destroy');
+});
+
 Route::middleware('role.hr')->prefix('designations')->name('designation.')->group(function () {
     Route::get('/', [\Modules\Core\Http\Controllers\DesignationController::class, 'index'])->name('index');
     Route::get('/create', [\Modules\Core\Http\Controllers\DesignationController::class, 'create'])->name('create');
@@ -88,6 +110,18 @@ Route::middleware('role.admin')->prefix('templates')->name('templates.')->group(
     Route::delete('/{template}', [\Modules\Core\Http\Controllers\DocumentTemplateController::class, 'destroy'])->name('destroy');
 });
 
+Route::middleware(['auth', 'role.admin'])->prefix('templates/email')->name('email-templates.')->group(function () {
+    Route::get('/', [\Modules\Core\Http\Controllers\EmailTemplateController::class, 'index'])->name('index');
+    Route::post('/', [\Modules\Core\Http\Controllers\EmailTemplateController::class, 'update'])->name('update');
+});
+
+Route::middleware('auth')->prefix('my/documents')->name('my-documents.')->group(function () {
+    Route::get('/', [\Modules\Core\Http\Controllers\EmployeeDocumentController::class, 'myIndex'])->name('index');
+    Route::get('/create', [\Modules\Core\Http\Controllers\EmployeeDocumentController::class, 'myCreate'])->name('create');
+    Route::post('/', [\Modules\Core\Http\Controllers\EmployeeDocumentController::class, 'myStore'])->name('store');
+    Route::get('/{document}/download', [\Modules\Core\Http\Controllers\EmployeeDocumentController::class, 'myDownload'])->name('download');
+});
+
 Route::middleware('role.hr')->prefix('documents')->name('documents.')->group(function () {
     Route::get('/', [\Modules\Core\Http\Controllers\EmployeeDocumentController::class, 'index'])->name('index');
     Route::get('/create', [\Modules\Core\Http\Controllers\EmployeeDocumentController::class, 'create'])->name('create');
@@ -107,6 +141,15 @@ Route::middleware('role.hr')->prefix('recruitment')->name('recruitment.')->group
     Route::put('/candidates/{candidate}/stage', [\Modules\Core\Http\Controllers\RecruitmentController::class, 'updateCandidateStage'])->name('candidates.stage');
     Route::put('/candidates/{candidate}', [\Modules\Core\Http\Controllers\RecruitmentController::class, 'updateCandidate'])->name('candidates.update');
     Route::get('/openings/{opening}', [\Modules\Core\Http\Controllers\RecruitmentController::class, 'showOpening'])->name('show');
+});
+
+Route::middleware('role.hr')->prefix('holidays')->name('holidays.')->group(function () {
+    Route::get('/', [\Modules\Core\Http\Controllers\PublicHolidayController::class, 'index'])->name('index');
+    Route::get('/create', [\Modules\Core\Http\Controllers\PublicHolidayController::class, 'create'])->name('create');
+    Route::post('/', [\Modules\Core\Http\Controllers\PublicHolidayController::class, 'store'])->name('store');
+    Route::get('/{holiday}/edit', [\Modules\Core\Http\Controllers\PublicHolidayController::class, 'edit'])->name('edit');
+    Route::put('/{holiday}', [\Modules\Core\Http\Controllers\PublicHolidayController::class, 'update'])->name('update');
+    Route::delete('/{holiday}', [\Modules\Core\Http\Controllers\PublicHolidayController::class, 'destroy'])->name('destroy');
 });
 
 Route::middleware('role.hr')->prefix('assets')->name('assets.')->group(function () {

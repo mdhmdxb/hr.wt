@@ -29,6 +29,26 @@
             <input type="checkbox" name="is_paid" value="1" id="is_paid" {{ old('is_paid', $type->is_paid) ? 'checked' : '' }} class="rounded border-slate-300">
             <label for="is_paid" class="text-sm text-slate-700 dark:text-slate-300">Paid leave</label>
         </div>
+        <div class="mt-2 space-y-2">
+            <label class="flex items-start gap-2 cursor-pointer">
+                <input type="checkbox" name="allow_document" value="1" {{ old('allow_document', $type->allow_document) ? 'checked' : '' }} class="mt-1 rounded border-slate-300">
+                <span class="text-sm text-slate-700 dark:text-slate-300">
+                    Allow supporting document upload (e.g. medical note, maternity proof)
+                </span>
+            </label>
+            <label class="flex items-start gap-2 cursor-pointer pl-6">
+                <input type="checkbox" name="require_document" value="1" {{ old('require_document', $type->require_document) ? 'checked' : '' }} class="mt-1 rounded border-slate-300">
+                <span class="text-sm text-slate-700 dark:text-slate-300">
+                    Document is required for this leave type
+                    <span class="block text-xs text-slate-500 dark:text-slate-400 mt-1">Example: Sick leave must have a medical certificate.</span>
+                </span>
+            </label>
+            <div class="pl-6">
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Document label (optional)</label>
+                <input type="text" name="document_label" value="{{ old('document_label', $type->document_label) }}" placeholder="e.g. Medical certificate, Hospital letter"
+                    class="w-full rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white px-3 py-2 text-sm">
+            </div>
+        </div>
         @php
             $rawWf = old('workflow_steps', $type->workflow_steps);
             $wfSteps = is_array($rawWf) && isset($rawWf[0]) && is_array($rawWf[0]) ? array_column($rawWf, 'approver') : (is_array($rawWf) ? $rawWf : []);

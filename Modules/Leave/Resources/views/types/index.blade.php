@@ -16,6 +16,7 @@
                 <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Days/Year</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Carry Over</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Paid</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Workflow</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Requests</th>
                 <th class="px-4 py-3 text-right text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Actions</th>
             </tr>
@@ -27,6 +28,19 @@
                 <td class="px-4 py-3 text-slate-600 dark:text-slate-400">{{ $lt->days_per_year }}</td>
                 <td class="px-4 py-3 text-slate-600 dark:text-slate-400">{{ $lt->carry_over ? 'Yes' : 'No' }}</td>
                 <td class="px-4 py-3 text-slate-600 dark:text-slate-400">{{ $lt->is_paid ? 'Yes' : 'No' }}</td>
+                <td class="px-4 py-3 text-slate-600 dark:text-slate-400 text-xs">
+                    @php
+                        $steps = $lt->getWorkflowStepsNormalized();
+                        $labels = \Modules\Leave\Models\LeaveApprovalStep::approverTypeOptions();
+                    @endphp
+                    @if(empty($steps))
+                        Single HR approval
+                    @else
+                        @foreach($steps as $idx => $step)
+                            {{ $labels[$step['approver'] ?? 'hr'] ?? ($step['approver'] ?? 'HR') }}@if($idx < count($steps)-1) → @endif
+                        @endforeach
+                    @endif
+                </td>
                 <td class="px-4 py-3 text-slate-600 dark:text-slate-400">{{ $lt->leave_requests_count }}</td>
                 <td class="px-4 py-3 text-right">
                     <a href="{{ route('leave.types.edit', $lt) }}" class="wise-link hover:underline">Edit</a>
@@ -39,7 +53,7 @@
             </tr>
             @empty
             <tr>
-                <td colspan="6" class="px-4 py-8 text-center text-slate-500 dark:text-slate-400">No leave types. Add one to allow leave requests.</td>
+                <td colspan="7" class="px-4 py-8 text-center text-slate-500 dark:text-slate-400">No leave types. Add one to allow leave requests.</td>
             </tr>
             @endforelse
         </tbody>

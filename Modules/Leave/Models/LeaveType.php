@@ -13,12 +13,17 @@ class LeaveType extends Model
         'carry_over',
         'color',
         'is_paid',
+        'allow_document',
+        'require_document',
+        'document_label',
         'workflow_steps',
     ];
 
     protected $casts = [
         'carry_over' => 'boolean',
         'is_paid' => 'boolean',
+        'allow_document' => 'boolean',
+        'require_document' => 'boolean',
         'workflow_steps' => 'array',
     ];
 

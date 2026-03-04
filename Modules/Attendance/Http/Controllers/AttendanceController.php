@@ -7,7 +7,10 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Storage;
 use Modules\Attendance\Models\Attendance;
+use Modules\Attendance\Models\AttendanceSubmission;
 use Modules\Core\Models\Employee;
+use Modules\Core\Models\Setting as CoreSetting;
+use Modules\Core\Models\PublicHoliday;
 
 class AttendanceController extends Controller
 {
@@ -199,6 +202,26 @@ class AttendanceController extends Controller
             }
         }
 
+        $publicHolidayDates = [];
+        $publicHolidayNames = [];
+        for ($day = 1; $day <= $daysInMonth; $day++) {
+            $date = Carbon::createFromDate($year, $month, $day);
+            if (PublicHoliday::isHoliday($date)) {
+                $dateStr = $date->format('Y-m-d');
+                $publicHolidayDates[] = $dateStr;
+                $publicHolidayNames[$dateStr] = PublicHoliday::getHolidayNameFor($date) ?? 'Holiday';
+            }
+        }
+
+        $submission = null;
+        $hoursSummary = [0.0, 0.0, 0.0];
+        if ($employeeId) {
+            $submission = AttendanceSubmission::where('employee_id', $employeeId)->where('year', $year)->where('month', $month)->first();
+            if ($employee) {
+                $hoursSummary = $this->computeMonthlyHours($employee, $existing, $year, $month);
+            }
+        }
+
         return view('attendance::batch', [
             'employees' => $employees,
             'employee' => $employee,
@@ -207,6 +230,10 @@ class AttendanceController extends Controller
             'year' => $year,
             'daysInMonth' => $daysInMonth,
             'existing' => $existing,
+            'publicHolidayDates' => $publicHolidayDates,
+            'publicHolidayNames' => $publicHolidayNames,
+            'submission' => $submission,
+            'hoursSummary' => $hoursSummary,
         ]);
     }
 
@@ -292,5 +319,207 @@ class AttendanceController extends Controller
         }
         $attendance->update(['check_out_at' => now()->format('H:i'), 'locked_at' => now()]);
         return back()->with('success', 'Checked out at ' . now()->format('h:i A') . '.');
+    }
+
+    /** Employee: my attendance batch (month grid). Can save until submitted; after submit, locked unless HR allows edit. */
+    public function myAttendance(Request $request)
+    {
+        $user = auth()->user();
+        if (! $user->employee_id) {
+            return redirect()->route('dashboard')->with('error', 'Your account is not linked to an employee.');
+        }
+        $employeeId = (int) $user->employee_id;
+        $month = (int) $request->query('month', Carbon::now()->month);
+        $year = (int) $request->query('year', Carbon::now()->year);
+        $month = max(1, min(12, $month));
+        $year = max(2020, min(2100, $year));
+
+        $employee = Employee::find($employeeId);
+        $daysInMonth = Carbon::createFromDate($year, $month, 1)->endOfMonth()->day;
+        $existing = Attendance::where('employee_id', $employeeId)
+            ->whereYear('date', $year)
+            ->whereMonth('date', $month)
+            ->get()
+            ->keyBy(fn ($a) => $a->date->format('Y-m-d'));
+
+        $publicHolidayDates = [];
+        $publicHolidayNames = [];
+        for ($day = 1; $day <= $daysInMonth; $day++) {
+            $date = Carbon::createFromDate($year, $month, $day);
+            if (PublicHoliday::isHoliday($date)) {
+                $dateStr = $date->format('Y-m-d');
+                $publicHolidayDates[] = $dateStr;
+                $publicHolidayNames[$dateStr] = PublicHoliday::getHolidayNameFor($date) ?? 'Holiday';
+            }
+        }
+
+        $submission = AttendanceSubmission::where('employee_id', $employeeId)->where('year', $year)->where('month', $month)->first();
+        $isLocked = $submission && $submission->submitted_at && ! $submission->allow_edit;
+        $hoursSummary = $employee ? $this->computeMonthlyHours($employee, $existing, $year, $month) : [0.0, 0.0, 0.0];
+
+        return view('attendance::my-batch', [
+            'employee' => $employee,
+            'employeeId' => $employeeId,
+            'month' => $month,
+            'year' => $year,
+            'daysInMonth' => $daysInMonth,
+            'existing' => $existing,
+            'publicHolidayDates' => $publicHolidayDates,
+            'publicHolidayNames' => $publicHolidayNames,
+            'isLocked' => $isLocked,
+            'submission' => $submission,
+            'hoursSummary' => $hoursSummary,
+        ]);
+    }
+
+    public function storeMyBatch(Request $request)
+    {
+        $user = auth()->user();
+        if (! $user->employee_id) {
+            return back()->with('error', 'Your account is not linked to an employee.');
+        }
+        $employeeId = (int) $user->employee_id;
+        $month = (int) $request->input('month');
+        $year = (int) $request->input('year');
+        if (AttendanceSubmission::isLocked($employeeId, $month, $year)) {
+            return back()->with('error', 'This month is submitted and locked. Contact HR to request edit permission.');
+        }
+        $request->validate([
+            'month' => 'required|integer|between:1,12',
+            'year' => 'required|integer|between:2020,2100',
+            'attendance' => 'required|array',
+            'attendance.*.date' => 'required|date',
+            'attendance.*.check_in_at' => 'nullable|date_format:H:i',
+            'attendance.*.check_out_at' => 'nullable|date_format:H:i',
+            'attendance.*.status' => 'required|in:' . implode(',', Attendance::validStatuses()),
+            'attendance.*.notes' => 'nullable|string|max:500',
+        ]);
+        foreach ($request->attendance as $row) {
+            $date = $row['date'] ?? null;
+            if (! $date) {
+                continue;
+            }
+            $d = Carbon::parse($date);
+            if ($d->month != $month || $d->year != $year) {
+                continue;
+            }
+            $att = Attendance::firstOrNew(['employee_id' => $employeeId, 'date' => $date]);
+            $att->check_in_at = ! empty($row['check_in_at']) ? $row['check_in_at'] : null;
+            $att->check_out_at = ! empty($row['check_out_at']) ? $row['check_out_at'] : null;
+            $att->status = $row['status'] ?? 'present';
+            $att->notes = $row['notes'] ?? null;
+            $att->save();
+        }
+        return redirect()->route('attendance.my', ['month' => $month, 'year' => $year])
+            ->with('success', 'Attendance saved.');
+    }
+
+    public function submitMyMonth(Request $request)
+    {
+        $user = auth()->user();
+        if (! $user->employee_id) {
+            return back()->with('error', 'Your account is not linked to an employee.');
+        }
+        $request->validate([
+            'month' => 'required|integer|between:1,12',
+            'year' => 'required|integer|between:2020,2100',
+        ]);
+        $employeeId = (int) $user->employee_id;
+        $month = (int) $request->month;
+        $year = (int) $request->year;
+
+        AttendanceSubmission::updateOrCreate(
+            ['employee_id' => $employeeId, 'year' => $year, 'month' => $month],
+            ['submitted_at' => now(), 'allow_edit' => false]
+        );
+        return redirect()->route('attendance.my', ['month' => $month, 'year' => $year])
+            ->with('success', 'Attendance submitted. You cannot edit this month unless HR allows it.');
+    }
+
+    /** HR: allow employee to edit a submitted month. */
+    public function allowEditSubmission(Request $request)
+    {
+        $request->validate([
+            'employee_id' => 'required|exists:employees,id',
+            'year' => 'required|integer|between:2020,2100',
+            'month' => 'required|integer|between:1,12',
+        ]);
+        $sub = AttendanceSubmission::firstOrNew([
+            'employee_id' => $request->employee_id,
+            'year' => $request->year,
+            'month' => $request->month,
+        ]);
+        $sub->allow_edit = true;
+        $sub->submitted_at = $sub->submitted_at ?? now();
+        $sub->save();
+        return back()->with('success', 'Edit permission granted for this month. After the employee submits again, it will lock automatically.');
+    }
+
+    /**
+     * Compute monthly working hours and overtime for an employee.
+     * Returns [workedHours, overtimeWorkedHours, acceptedOvertimeHours].
+     *
+     * Overtime is calculated as time beyond scheduled shift on working days
+     * plus all time worked on weekly offs / alternate Saturdays / public holidays.
+     * Accepted overtime drops broken minutes (only full hours are counted).
+     */
+    protected function computeMonthlyHours(Employee $employee, $existing, int $year, int $month): array
+    {
+        $daysInMonth = Carbon::createFromDate($year, $month, 1)->endOfMonth()->day;
+        $totalWorkMinutes = 0;
+        $totalOvertimeMinutes = 0;
+
+        for ($day = 1; $day <= $daysInMonth; $day++) {
+            $date = Carbon::createFromDate($year, $month, $day);
+            $dateStr = $date->format('Y-m-d');
+            $rec = $existing[$dateStr] ?? null;
+            if (! $rec || ! $rec->check_in_at || ! $rec->check_out_at) {
+                continue;
+            }
+
+            $in = Carbon::parse($dateStr . ' ' . $rec->check_in_at);
+            $out = Carbon::parse($dateStr . ' ' . $rec->check_out_at);
+            $actualMinutes = max(0, $out->diffInMinutes($in));
+            if ($actualMinutes === 0) {
+                continue;
+            }
+
+            $totalWorkMinutes += $actualMinutes;
+
+            $isHoliday = PublicHoliday::isHoliday($date);
+            $isWeeklyOff = $employee->isWeeklyOffDay($date);
+            $isAltSat = $employee->isAlternateSaturdayOffDay($date);
+            $isOffDay = $isHoliday || $isWeeklyOff || $isAltSat;
+
+            $scheduledMinutes = 0;
+            if (! $isOffDay && $employee->shift_start && $employee->shift_end) {
+                $shiftIn = Carbon::parse($dateStr . ' ' . $employee->shift_start);
+                $shiftOut = Carbon::parse($dateStr . ' ' . $employee->shift_end);
+                $scheduledMinutes = max(0, $shiftOut->diffInMinutes($shiftIn));
+            }
+
+            $extraMinutes = $isOffDay ? $actualMinutes : max(0, $actualMinutes - $scheduledMinutes);
+            $totalOvertimeMinutes += $extraMinutes;
+        }
+
+        $workedHours = round($totalWorkMinutes / 60, 2);
+        $overtimeWorkedHours = round($totalOvertimeMinutes / 60, 2);
+
+        $acceptVal = CoreSetting::getValue('overtime_accept_partial');
+        $acceptPartial = is_array($acceptVal) && isset($acceptVal[0]) && (bool) $acceptVal[0];
+        $thresholdVal = CoreSetting::getValue('overtime_partial_threshold');
+        $threshold = 0;
+        if (is_array($thresholdVal) && isset($thresholdVal[0])) {
+            $threshold = max(0, min(59, (int) $thresholdVal[0]));
+        }
+
+        $baseHours = intdiv($totalOvertimeMinutes, 60);
+        $remainingMinutes = $totalOvertimeMinutes % 60;
+        $acceptedOvertimeHours = $baseHours;
+        if ($acceptPartial && $remainingMinutes >= $threshold && $threshold >= 0 && $threshold < 60) {
+            $acceptedOvertimeHours++;
+        }
+
+        return [$workedHours, $overtimeWorkedHours, $acceptedOvertimeHours];
     }
 }

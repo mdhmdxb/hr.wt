@@ -6,6 +6,7 @@ $isHr = $user->isHr();
 $isManager = $user->isManager();
 $isAccounts = $user->isAccounts();
 $mod = function($key) { return \Modules\Core\Models\Setting::isModuleEnabled($key); };
+$perm = function($key) use ($user) { return $user->hasPermission($key); };
 
 $groups = [];
 
@@ -23,86 +24,108 @@ if ($isAdmin) {
 }
 $groups[] = ['label' => 'Main', 'items' => $main];
 
-// People (including Designations)
+// People (including Designations) — role or privilege
 $people = [];
-if ($mod('employees') && ($isAdmin || $isHr)) {
+if ($mod('employees') && ($isAdmin || $isHr || $perm('manage_employees'))) {
     $people[] = ['route' => 'employee.index', 'label' => 'Employees', 'icon' => '👥'];
 }
-if ($mod('documents') && ($isAdmin || $isHr)) {
+if ($mod('documents') && ($isAdmin || $isHr || $perm('manage_documents'))) {
     $people[] = ['route' => 'documents.index', 'label' => 'Documents', 'icon' => '📂'];
 }
-if ($mod('recruitment') && ($isAdmin || $isHr)) {
+if ($mod('documents') && $user->employee_id && !$isAdmin && !$isHr && !$perm('manage_documents')) {
+    $people[] = ['route' => 'my-documents.index', 'label' => 'My documents', 'icon' => '📂'];
+}
+if ($mod('recruitment') && ($isAdmin || $isHr || $perm('manage_employees'))) {
     $people[] = ['route' => 'recruitment.index', 'label' => 'Recruitment', 'icon' => '📋'];
 }
-if ($mod('designations') && ($isAdmin || $isHr)) {
+if ($mod('designations') && ($isAdmin || $isHr || $perm('manage_employees'))) {
     $people[] = ['route' => 'designation.index', 'label' => 'Designations', 'icon' => '👔'];
+}
+if ($isAdmin || $isHr || $perm('manage_employees')) {
+    $people[] = ['route' => 'department.index', 'label' => 'Departments', 'icon' => '🏢'];
 }
 if (!empty($people)) {
     $groups[] = ['label' => 'People', 'items' => $people];
 }
 
-// Time
+// Time — role or privilege
 $time = [];
-if ($mod('attendance') && ($isAdmin || $isHr)) {
+if ($mod('attendance') && ($isAdmin || $isHr || $perm('manage_attendance'))) {
     $time[] = ['route' => 'attendance.index', 'label' => 'Attendance', 'icon' => '🕐'];
 }
-if ($mod('leave') && ($isAdmin || $isHr)) {
+if ($mod('attendance') && $user->employee_id && !$isAdmin && !$isHr && !$perm('manage_attendance')) {
+    $time[] = ['route' => 'attendance.my', 'label' => 'My Attendance', 'icon' => '🕐'];
+}
+if ($mod('leave') && $user->employee_id && !$isAdmin && !$isHr && !$perm('manage_leave')) {
+    $time[] = ['route' => 'my-leave.index', 'label' => 'My Leave', 'icon' => '📅'];
+}
+if ($mod('leave') && ($isAdmin || $isHr || $isManager || $perm('manage_leave'))) {
     $time[] = ['route' => 'leave.index', 'label' => 'Leave', 'icon' => '📅'];
+    if ($isAdmin || $isHr || $perm('manage_leave')) {
+        $time[] = ['route' => 'leave.history.index', 'label' => 'Leave history', 'icon' => '📋'];
+    }
+}
+if ($isAdmin || $isHr || $perm('manage_leave')) {
+    $time[] = ['route' => 'holidays.index', 'label' => 'Public Holidays', 'icon' => '🏖️'];
 }
 if (!empty($time)) {
     $groups[] = ['label' => 'Time', 'items' => $time];
 }
 
-// Finance (Payroll only)
+// Finance (Payroll only) — role or privilege
 $finance = [];
-if ($mod('payroll') && ($isAdmin || $isAccounts)) {
+if ($mod('payroll') && ($isAdmin || $isAccounts || $perm('manage_payroll'))) {
     $finance[] = ['route' => 'payroll.index', 'label' => 'Payroll', 'icon' => '💰'];
 }
 if (!empty($finance)) {
     $groups[] = ['label' => 'Finance', 'items' => $finance];
 }
 
-// Reports & Templates (one group)
+// Reports & Templates — role or privilege
 $reports = [];
-if ($mod('reports') && ($isAdmin || $isHr || $isAccounts)) {
+if ($mod('reports') && ($isAdmin || $isHr || $isAccounts || $perm('manage_reports'))) {
     $reports[] = ['route' => 'reports.index', 'label' => 'Reports', 'icon' => '📈'];
 }
-if ($mod('templates') && $isAdmin) {
-    $reports[] = ['route' => 'templates.index', 'label' => 'Templates', 'icon' => '📄'];
+if ($mod('templates') && ($isAdmin || $perm('manage_templates'))) {
+    $reports[] = ['route' => 'templates.index', 'label' => 'Templates – Reports', 'icon' => '📄'];
+    $reports[] = ['route' => 'email-templates.index', 'label' => 'Templates – Email', 'icon' => '✉️'];
 }
 if (!empty($reports)) {
     $groups[] = ['label' => 'Reports', 'items' => $reports];
 }
 
-// Organization (no Designations - they are in People)
+// Organization — role or privilege
 $org = [];
-if ($mod('companies') && $isAdmin) {
+if ($mod('companies') && ($isAdmin || $perm('manage_organization'))) {
     $org[] = ['route' => 'company.index', 'label' => 'Companies', 'icon' => '🏛️'];
 }
-if ($mod('branches') && $isAdmin) {
+if ($mod('branches') && ($isAdmin || $perm('manage_organization'))) {
     $org[] = ['route' => 'branch.index', 'label' => 'Branches', 'icon' => '🏢'];
 }
-if ($mod('sites') && $isAdmin) {
+if ($mod('sites') && ($isAdmin || $perm('manage_organization'))) {
     $org[] = ['route' => 'site.index', 'label' => 'Sites', 'icon' => '📍'];
 }
-if ($mod('projects') && ($isAdmin || $isHr)) {
+if ($mod('projects') && ($isAdmin || $isHr || $perm('manage_organization'))) {
     $org[] = ['route' => 'projects.index', 'label' => 'Projects', 'icon' => '📋'];
 }
 if (!empty($org)) {
     $groups[] = ['label' => 'Organization', 'items' => $org];
 }
 
-// Assets
-if ($mod('assets') && ($isAdmin || $isHr)) {
+// Assets — role or privilege
+if ($mod('assets') && ($isAdmin || $isHr || $perm('manage_documents'))) {
     $groups[] = ['label' => 'Assets', 'items' => [
         ['route' => 'assets.index', 'label' => 'Assets', 'icon' => '📱'],
     ]];
 }
 
-// System
+// System — Users & roles only for Admin/Management; Settings for Admin/HR or privilege
 $system = [];
-if ($isAdmin) {
+if ($isAdmin || $isHr || $perm('manage_settings')) {
     $system[] = ['route' => 'settings.general', 'label' => 'Settings', 'icon' => '⚙️'];
+}
+if ($isAdmin) {
+    $system[] = ['route' => 'users.index', 'label' => 'Users & roles', 'icon' => '👤'];
 }
 $system[] = ['route' => 'about', 'label' => 'About', 'icon' => 'ℹ️'];
 $groups[] = ['label' => 'System', 'items' => $system];

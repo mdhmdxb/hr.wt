@@ -21,7 +21,7 @@ class SettingsServiceProvider extends ServiceProvider
 
     protected function registerRoutes(): void
     {
-        Route::middleware(['web', 'installed', 'auth', 'role.admin'])
+        Route::middleware(['web', 'installed', 'auth', 'role.hr'])
             ->prefix('settings')
             ->name('settings.')
             ->group(__DIR__ . '/../Routes/web.php');

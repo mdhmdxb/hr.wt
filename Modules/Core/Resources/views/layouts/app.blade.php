@@ -68,6 +68,31 @@
             background: var(--wise-sidebar-active-bg);
             color: var(--wise-sidebar-active-text) !important;
         }
+        @media print {
+            body {
+                background: #ffffff !important;
+            }
+            body * {
+                visibility: hidden;
+            }
+            .print-area,
+            .print-area * {
+                visibility: visible;
+            }
+            .print-area {
+                position: static !important;
+                inset: 0 !important;
+                margin: 0 auto !important;
+                box-shadow: none !important;
+                border: none !important;
+            }
+            aside,
+            header,
+            nav,
+            footer {
+                display: none !important;
+            }
+        }
     </style>
     @stack('styles')
 </head>
@@ -149,8 +174,9 @@
                         <span x-show="!dark">🌙</span>
                         <span x-show="dark" x-cloak>☀️</span>
                     </button>
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-3">
                         <span class="text-sm text-slate-600 dark:text-slate-400">{{ auth()->user()->name }}</span>
+                        <a href="{{ route('profile.edit') }}" class="text-xs text-slate-500 dark:text-slate-400 hover:underline">My profile</a>
                         <form method="POST" action="{{ route('logout') }}" class="inline">
                             @csrf
                             <button type="submit" class="text-sm wise-link">Logout</button>

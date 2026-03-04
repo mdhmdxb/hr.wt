@@ -4,9 +4,20 @@
 @section('heading', 'Add Employee')
 
 @section('content')
-<form method="POST" action="{{ route('employee.store') }}" class="max-w-2xl space-y-4">
+<form method="POST" action="{{ route('employee.store') }}" class="max-w-2xl space-y-4" enctype="multipart/form-data">
     @csrf
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="md:col-span-2 flex items-center gap-4 mb-2">
+            <div class="w-14 h-14 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-300 text-sm">
+                Photo
+            </div>
+            <div class="flex-1">
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Employee photo</label>
+                <input type="file" name="photo" accept="image/png,image/jpeg" class="w-full rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white px-3 py-2 text-sm">
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Optional. Used on profile screens and reports.</p>
+                @error('photo')<p class="text-red-600 text-sm mt-1">{{ $message }}</p>@enderror
+            </div>
+        </div>
         <div>
             <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Employee Code *</label>
             <input type="text" name="employee_code" value="{{ old('employee_code') }}" required
@@ -33,6 +44,32 @@
         <div>
             <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Phone</label>
             <input type="text" name="phone" value="{{ old('phone') }}" class="w-full rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white px-3 py-2">
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nationality</label>
+            <input type="text" name="nationality" value="{{ old('nationality') }}" placeholder="e.g. Indian, Filipino" class="w-full rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white px-3 py-2">
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Gender</label>
+            <select name="gender" class="w-full rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white px-3 py-2">
+                <option value="">— Select —</option>
+                <option value="male" {{ old('gender') == 'male' ? 'selected' : '' }}>Male</option>
+                <option value="female" {{ old('gender') == 'female' ? 'selected' : '' }}>Female</option>
+                <option value="other" {{ old('gender') == 'other' ? 'selected' : '' }}>Other</option>
+            </select>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Religion</label>
+            <select name="religion" class="w-full rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white px-3 py-2">
+                @foreach(\Modules\Core\Models\Employee::religionOptions() as $val => $label)
+                    <option value="{{ $val }}" {{ old('religion') === (string)$val ? 'selected' : '' }}>{{ $label }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Break (minutes)</label>
+            <input type="number" name="break_minutes" value="{{ old('break_minutes') }}" min="0" max="480" placeholder="e.g. 0 or 30" class="w-full rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white px-3 py-2">
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Daily break; e.g. 0 for Muslims (Ramadan), 30 for others.</p>
         </div>
         <div>
             <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Branch *</label>
@@ -82,6 +119,10 @@
             @error('hire_date')<p class="text-red-600 text-sm mt-1">{{ $message }}</p>@enderror
         </div>
         <div>
+            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Date of birth</label>
+            <input type="date" name="date_of_birth" value="{{ old('date_of_birth') }}" class="w-full rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white px-3 py-2">
+        </div>
+        <div>
             <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Employment Type *</label>
             <select name="employment_type" required class="w-full rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white px-3 py-2">
                 <option value="full_time" {{ old('employment_type') == 'full_time' ? 'selected' : '' }}>Full Time</option>
@@ -122,7 +163,30 @@
                 <option value="inactive" {{ old('status') == 'inactive' ? 'selected' : '' }}>Inactive</option>
             </select>
         </div>
+        <div>
+            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Remaining leave (days)</label>
+            <input type="number" step="0.5" min="0" name="remaining_leave" value="{{ old('remaining_leave') }}" placeholder="e.g. 30" class="w-full rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white px-3 py-2">
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Current annual/leave balance. Leave empty if not applicable. Approved leave will deduct from this.</p>
+        </div>
     </div>
+    <div class="border-t border-slate-200 dark:border-slate-600 pt-4 mt-4">
+        <h3 class="wise-heading text-sm font-semibold text-slate-800 dark:text-slate-100 mb-3">Address &amp; emergency contact</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="md:col-span-2">
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Permanent address</label>
+                <textarea name="permanent_address" rows="2" class="w-full rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white px-3 py-2" placeholder="Building, street, city, country">{{ old('permanent_address') }}</textarea>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Emergency contact person</label>
+                <input type="text" name="emergency_contact_name" value="{{ old('emergency_contact_name') }}" placeholder="Name" class="w-full rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white px-3 py-2">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Emergency contact phone</label>
+                <input type="text" name="emergency_contact_phone" value="{{ old('emergency_contact_phone') }}" placeholder="Phone number" class="w-full rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white px-3 py-2">
+            </div>
+        </div>
+    </div>
+
     {{-- Portal login (so employee can sign in) --}}
     <div class="border-t border-slate-200 dark:border-slate-600 pt-4 mt-4">
         <h3 class="wise-heading text-sm font-semibold text-slate-800 dark:text-slate-100 mb-3">Portal login</h3>

@@ -82,6 +82,17 @@
         {{-- Overtime --}}
         <div>
             <h3 class="wise-heading text-sm font-semibold text-slate-800 dark:text-slate-100 mb-3">Overtime</h3>
+            @if(isset($offDayWorkHours) && ($offDayWorkHours > 0 || !empty($offDayWorkDetails)))
+            <p class="text-sm text-slate-600 dark:text-slate-400 mb-3">
+                <strong>Hours worked on off days (from attendance):</strong> {{ number_format($offDayWorkHours ?? 0, 2) }}
+                @if(!empty($offDayWorkDetails))
+                    —
+                    @foreach($offDayWorkDetails as $d)
+                        {{ $d['date'] }} ({{ $d['hours'] }} h, {{ $d['label'] }})@if(!$loop->last); @endif
+                    @endforeach
+                @endif
+            </p>
+            @endif
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                     <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Regular overtime hours</label>

@@ -8,6 +8,18 @@ use Modules\Leave\Models\LeaveType;
 
 class LeaveTypeController extends Controller
 {
+    public function __construct()
+    {
+        // Only Admin / Management (treated as admin) and HR may manage leave types.
+        $this->middleware(function ($request, $next) {
+            $user = auth()->user();
+            if (! $user || (! $user->isAdmin() && ! $user->isHr())) {
+                abort(403, 'Unauthorized.');
+            }
+            return $next($request);
+        });
+    }
+
     public function index()
     {
         $leaveTypes = LeaveType::withCount('leaveRequests')->orderBy('name')->paginate(15);
@@ -27,8 +39,11 @@ class LeaveTypeController extends Controller
             'carry_over' => 'boolean',
             'color' => 'nullable|string|max:20',
             'is_paid' => 'boolean',
+            'allow_document' => 'nullable|boolean',
+            'require_document' => 'nullable|boolean',
+            'document_label' => 'nullable|string|max:255',
             'workflow_steps' => 'nullable|array',
-            'workflow_steps.*' => 'string|in:reporting_manager,hr,accounts,admin',
+            'workflow_steps.*' => 'string|in:reporting_manager,hr,accounts,admin,owner',
         ]);
 
         $workflow = $this->normalizeWorkflowSteps($request->workflow_steps ?? []);
@@ -39,6 +54,9 @@ class LeaveTypeController extends Controller
             'carry_over' => $request->boolean('carry_over'),
             'color' => $request->color ?: null,
             'is_paid' => $request->boolean('is_paid', true),
+            'allow_document' => $request->boolean('allow_document', false),
+            'require_document' => $request->boolean('require_document', false),
+            'document_label' => $request->input('document_label') ?: null,
             'workflow_steps' => $workflow,
         ]);
 
@@ -58,8 +76,11 @@ class LeaveTypeController extends Controller
             'carry_over' => 'boolean',
             'color' => 'nullable|string|max:20',
             'is_paid' => 'boolean',
+            'allow_document' => 'nullable|boolean',
+            'require_document' => 'nullable|boolean',
+            'document_label' => 'nullable|string|max:255',
             'workflow_steps' => 'nullable|array',
-            'workflow_steps.*' => 'string|in:reporting_manager,hr,accounts,admin',
+            'workflow_steps.*' => 'string|in:reporting_manager,hr,accounts,admin,owner',
         ]);
 
         $workflow = $this->normalizeWorkflowSteps($request->workflow_steps ?? []);
@@ -70,6 +91,9 @@ class LeaveTypeController extends Controller
             'carry_over' => $request->boolean('carry_over'),
             'color' => $request->color ?: null,
             'is_paid' => $request->boolean('is_paid', true),
+            'allow_document' => $request->boolean('allow_document', false),
+            'require_document' => $request->boolean('require_document', false),
+            'document_label' => $request->input('document_label') ?: null,
             'workflow_steps' => $workflow,
         ]);
 

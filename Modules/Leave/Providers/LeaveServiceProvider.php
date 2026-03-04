@@ -21,9 +21,16 @@ class LeaveServiceProvider extends ServiceProvider
 
     protected function registerRoutes(): void
     {
-        Route::middleware(['web', 'installed', 'auth', 'role.hr'])
+        // HR/Admin/Manager leave management
+        Route::middleware(['web', 'installed', 'auth', 'role.hr_manager'])
             ->prefix('leave')
             ->name('leave.')
             ->group(__DIR__ . '/../Routes/web.php');
+
+        // Employee self-service leave (My Leave)
+        Route::middleware(['web', 'installed', 'auth'])
+            ->prefix('my-leave')
+            ->name('my-leave.')
+            ->group(__DIR__ . '/../Routes/my.php');
     }
 }

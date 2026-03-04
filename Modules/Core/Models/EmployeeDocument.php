@@ -22,6 +22,7 @@ class EmployeeDocument extends Model
         'uploaded_at',
         'approved_by',
         'approved_at',
+        'employee_can_upload_again',
     ];
 
     protected $casts = [

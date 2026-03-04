@@ -21,13 +21,16 @@ class AttendanceServiceProvider extends ServiceProvider
 
     protected function registerRoutes(): void
     {
-        // Self check-in/out: any logged-in user with employee_id (no HR required)
+        // Employee self: check-in/out + my attendance batch (no HR required)
         Route::middleware(['web', 'installed', 'auth'])
             ->prefix('attendance')
             ->name('attendance.')
             ->group(function () {
                 Route::post('/self/check-in', [\Modules\Attendance\Http\Controllers\AttendanceController::class, 'selfCheckIn'])->name('self.check-in');
                 Route::post('/self/check-out', [\Modules\Attendance\Http\Controllers\AttendanceController::class, 'selfCheckOut'])->name('self.check-out');
+                Route::get('/my-attendance', [\Modules\Attendance\Http\Controllers\AttendanceController::class, 'myAttendance'])->name('my');
+                Route::post('/my-attendance', [\Modules\Attendance\Http\Controllers\AttendanceController::class, 'storeMyBatch'])->name('my.store');
+                Route::post('/my-attendance/submit', [\Modules\Attendance\Http\Controllers\AttendanceController::class, 'submitMyMonth'])->name('my.submit');
             });
 
         // All other attendance routes: Admin or HR only

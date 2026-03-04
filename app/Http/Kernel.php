@@ -62,6 +62,7 @@ class Kernel extends HttpKernel
         'role.owner' => \Modules\Core\Http\Middleware\OwnerOnly::class,
         'role.admin' => \Modules\Core\Http\Middleware\AdminOnly::class,
         'role.hr' => \Modules\Core\Http\Middleware\HrOnly::class,
+        'role.hr_manager' => \Modules\Core\Http\Middleware\HrManagerOnly::class,
         'role.manager' => \Modules\Core\Http\Middleware\ManagerOnly::class,
         'role.accounts' => \Modules\Core\Http\Middleware\AccountsOnly::class,
         'role.employee' => \Modules\Core\Http\Middleware\EmployeeOnly::class,

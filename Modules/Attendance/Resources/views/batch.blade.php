@@ -5,6 +5,7 @@
 
 @section('content')
 <div class="space-y-6">
+    <p class="text-sm text-slate-600 dark:text-slate-400">To <strong>allow an employee to edit</strong> a month they already submitted: select the employee and month below, click <strong>Load</strong>, then use the <strong>Allow employee to edit</strong> button that appears when that month is submitted.</p>
     {{-- Selector --}}
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-200/50 dark:border-slate-700/50 p-6">
         <h2 class="wise-heading text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">Select month & employee</h2>
@@ -46,12 +47,41 @@
         <input type="hidden" name="month" value="{{ $month }}">
         <input type="hidden" name="year" value="{{ $year }}">
 
-        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-200/50 dark:border-slate-700/50 overflow-hidden">
+        @php [$workedHours, $otWorkedHours, $acceptedOtHours] = $hoursSummary ?? [0, 0, 0]; @endphp
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-200/50 dark:border-slate-700/50 overflow-hidden print-area">
             <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
-                <h2 class="wise-heading text-lg font-semibold text-slate-800 dark:text-slate-100">
-                    {{ $employee->full_name }} — {{ \Carbon\Carbon::createFromDate($year, $month, 1)->format('F Y') }}
-                </h2>
-                <button type="submit" class="px-5 py-2.5 wise-btn text-white rounded-xl font-medium shadow-lg hover:shadow-xl transition-all">Save batch</button>
+                <div>
+                    <h2 class="wise-heading text-lg font-semibold text-slate-800 dark:text-slate-100">
+                        {{ $employee->full_name }} — {{ \Carbon\Carbon::createFromDate($year, $month, 1)->format('F Y') }}
+                    </h2>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                        <span class="inline-block w-3 h-3 rounded bg-amber-100 dark:bg-amber-900/30 mr-1 align-middle"></span> Public holiday
+                        <span class="ml-3 inline-block w-3 h-3 rounded bg-slate-100 dark:bg-slate-700 mr-1 align-middle"></span> Weekly off
+                        <span class="ml-3 inline-block w-3 h-3 rounded bg-blue-100 dark:bg-blue-900/30 mr-1 align-middle"></span> Alt. Saturday off
+                        <span class="ml-3">— Change status to Present/Half day to enter times when they worked on an off day.</span>
+                    </p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                        Worked hours: <span class="font-semibold">{{ number_format($workedHours, 2) }}</span> h ·
+                        Overtime worked: <span class="font-semibold">{{ number_format($otWorkedHours, 2) }}</span> h ·
+                        Accepted overtime (full hours only): <span class="font-semibold">{{ $acceptedOtHours }}</span> h
+                    </p>
+                    @if(isset($submission) && $submission && $submission->submitted_at)
+                    <p class="text-xs text-amber-600 dark:text-amber-400 mt-1">Submitted. Employee cannot edit unless you allow it.</p>
+                    <form method="POST" action="{{ route('attendance.submission.allow-edit') }}" class="inline mt-2">
+                        @csrf
+                        <input type="hidden" name="employee_id" value="{{ $employeeId }}">
+                        <input type="hidden" name="year" value="{{ $year }}">
+                        <input type="hidden" name="month" value="{{ $month }}">
+                        <button type="submit" class="px-3 py-1.5 text-sm rounded-lg border border-amber-500 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20">Allow employee to edit</button>
+                    </form>
+                    @endif
+                </div>
+                <div class="flex gap-2 items-center">
+                    <button type="button" onclick="window.print()" class="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 print:hidden">
+                        Print
+                    </button>
+                    <button type="submit" class="px-5 py-2.5 wise-btn text-white rounded-xl font-medium shadow-lg hover:shadow-xl transition-all">Save batch</button>
+                </div>
             </div>
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
@@ -66,14 +96,20 @@
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
+                        @php
+                            $holidayDates = $publicHolidayDates ?? [];
+                            $holidayNames = $publicHolidayNames ?? [];
+                            $offDayStatuses = ['weekly_off', 'alt_saturday_off', 'holiday'];
+                        @endphp
                         @for($day = 1; $day <= $daysInMonth; $day++)
                             @php
                                 $date = \Carbon\Carbon::createFromDate($year, $month, $day);
                                 $dateStr = $date->format('Y-m-d');
                                 $rec = $existing[$dateStr] ?? null;
-                                $isWeekend = $date->isWeekend();
                                 if ($rec) {
                                     $defaultStatus = $rec->status;
+                                } elseif (in_array($dateStr, $holidayDates)) {
+                                    $defaultStatus = 'holiday';
                                 } elseif ($employee->isWeeklyOffDay($date)) {
                                     $defaultStatus = 'weekly_off';
                                 } elseif ($employee->isAlternateSaturdayOffDay($date)) {
@@ -81,21 +117,39 @@
                                 } else {
                                     $defaultStatus = 'present';
                                 }
+                                $rowClass = '';
+                                if ($defaultStatus === 'holiday') {
+                                    $rowClass = 'bg-amber-50 dark:bg-amber-900/20';
+                                } elseif ($defaultStatus === 'weekly_off') {
+                                    $rowClass = 'bg-slate-100 dark:bg-slate-800/70';
+                                } elseif ($defaultStatus === 'alt_saturday_off') {
+                                    $rowClass = 'bg-blue-50 dark:bg-blue-900/20';
+                                }
+                                $holidayName = $holidayNames[$dateStr] ?? null;
+                                $checkInVal = $rec && $rec->check_in_at ? \Carbon\Carbon::parse($rec->check_in_at)->format('H:i') : ($employee->shift_start ?? '');
+                                $checkOutVal = $rec && $rec->check_out_at ? \Carbon\Carbon::parse($rec->check_out_at)->format('H:i') : ($employee->shift_end ?? '');
                             @endphp
-                            <tr class="{{ $isWeekend ? 'bg-slate-50/50 dark:bg-slate-800/50' : '' }}">
+                            <tr class="{{ $rowClass }}" x-data="{ status: '{{ $defaultStatus }}' }">
                                 <td class="px-4 py-2 text-slate-700 dark:text-slate-300 text-sm font-medium whitespace-nowrap">{{ $dateStr }}</td>
-                                <td class="px-4 py-2 text-slate-500 dark:text-slate-400 text-sm">{{ $date->format('D') }}</td>
+                                <td class="px-4 py-2 text-slate-500 dark:text-slate-400 text-sm">{{ $date->format('D') }}@if($holidayName) <span class="text-amber-600 dark:text-amber-400" title="{{ $holidayName }}">★</span>@endif</td>
                                 <td class="px-4 py-2">
                                     <input type="hidden" name="attendance[{{ $day }}][date]" value="{{ $dateStr }}">
-                                    <input type="time" name="attendance[{{ $day }}][check_in_at]" value="{{ $rec && $rec->check_in_at ? \Carbon\Carbon::parse($rec->check_in_at)->format('H:i') : ($employee->shift_start ?? '') }}"
-                                        class="w-full rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white px-2 py-1.5 text-sm">
+                                    <span class="text-slate-400 dark:text-slate-500 text-sm" x-show="['weekly_off', 'alt_saturday_off', 'holiday'].includes(status)" x-cloak>—</span>
+                                    <input type="hidden" :name="['weekly_off', 'alt_saturday_off', 'holiday'].includes(status) ? 'attendance[{{ $day }}][check_in_at]' : ''" value="">
+                                    <input type="time" :name="!['weekly_off', 'alt_saturday_off', 'holiday'].includes(status) ? 'attendance[{{ $day }}][check_in_at]' : ''" value="{{ $checkInVal }}"
+                                        class="w-full rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white px-2 py-1.5 text-sm"
+                                        x-show="!['weekly_off', 'alt_saturday_off', 'holiday'].includes(status)">
                                 </td>
                                 <td class="px-4 py-2">
-                                    <input type="time" name="attendance[{{ $day }}][check_out_at]" value="{{ $rec && $rec->check_out_at ? \Carbon\Carbon::parse($rec->check_out_at)->format('H:i') : ($employee->shift_end ?? '') }}"
-                                        class="w-full rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white px-2 py-1.5 text-sm">
+                                    <span class="text-slate-400 dark:text-slate-500 text-sm" x-show="['weekly_off', 'alt_saturday_off', 'holiday'].includes(status)" x-cloak>—</span>
+                                    <input type="hidden" :name="['weekly_off', 'alt_saturday_off', 'holiday'].includes(status) ? 'attendance[{{ $day }}][check_out_at]' : ''" value="">
+                                    <input type="time" :name="!['weekly_off', 'alt_saturday_off', 'holiday'].includes(status) ? 'attendance[{{ $day }}][check_out_at]' : ''" value="{{ $checkOutVal }}"
+                                        class="w-full rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white px-2 py-1.5 text-sm"
+                                        x-show="!['weekly_off', 'alt_saturday_off', 'holiday'].includes(status)">
                                 </td>
                                 <td class="px-4 py-2">
-                                    <select name="attendance[{{ $day }}][status]" class="w-full rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white px-2 py-1.5 text-sm">
+                                    <select name="attendance[{{ $day }}][status]" class="w-full rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white px-2 py-1.5 text-sm"
+                                        x-model="status">
                                         @foreach(\Modules\Attendance\Models\Attendance::statusOptions() as $val => $label)
                                             <option value="{{ $val }}" {{ $defaultStatus === $val ? 'selected' : '' }}>{{ $label }}</option>
                                         @endforeach
