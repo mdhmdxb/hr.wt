@@ -9,8 +9,22 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('employees', function (Blueprint $table) {
-            $table->string('religion', 50)->nullable()->after('gender');
-            $table->unsignedSmallInteger('break_minutes')->nullable()->after('shift_end')->comment('Daily break in minutes, e.g. 0 for Muslim (Ramadan), 30 for others');
+            // Add religion if missing. Place after gender when available; otherwise append.
+            if (! Schema::hasColumn('employees', 'religion')) {
+                $religion = $table->string('religion', 50)->nullable();
+                if (Schema::hasColumn('employees', 'gender')) {
+                    $religion->after('gender');
+                }
+            }
+
+            // Add break_minutes if missing. Place after shift_end when available; otherwise append.
+            if (! Schema::hasColumn('employees', 'break_minutes')) {
+                $break = $table->unsignedSmallInteger('break_minutes')->nullable()
+                    ->comment('Daily break in minutes, e.g. 0 for Muslim (Ramadan), 30 for others');
+                if (Schema::hasColumn('employees', 'shift_end')) {
+                    $break->after('shift_end');
+                }
+            }
         });
     }
 
