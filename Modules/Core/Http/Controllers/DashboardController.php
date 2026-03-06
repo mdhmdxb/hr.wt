@@ -5,6 +5,7 @@ namespace Modules\Core\Http\Controllers;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Schema;
 use Modules\Attendance\Models\Attendance;
 use Modules\Core\Models\Company;
 use Modules\Core\Models\Department;
@@ -164,26 +165,29 @@ class DashboardController extends Controller
                 ->take(8)
                 ->get();
 
-            // Birthdays: today + upcoming (next 30 days)
-            $upcomingBirthdays = Employee::whereNotNull('date_of_birth')
-                ->whereIn('id', $employeeIds)
-                ->get()
-                ->map(function (Employee $e) use ($today) {
-                    $dob = $e->date_of_birth;
-                    $next = $dob->copy()->year($today->year);
-                    if ($next->lt($today)) {
-                        $next->addYear();
-                    }
-                    $isToday = $next->isSameDay($today);
-                    return ['employee' => $e, 'next_birthday' => $next, 'is_today' => $isToday];
-                })
-                ->filter(function ($row) use ($today) {
-                    /** @var \Carbon\Carbon $d */
-                    $d = $row['next_birthday'];
-                    return $d->between($today, $today->copy()->addDays(30));
-                })
-                ->sortBy('next_birthday')
-                ->take(8);
+            // Birthdays: today + upcoming (next 30 days).
+            // Guard against older databases that do not yet have date_of_birth.
+            if (Schema::hasTable('employees') && Schema::hasColumn('employees', 'date_of_birth')) {
+                $upcomingBirthdays = Employee::whereNotNull('date_of_birth')
+                    ->whereIn('id', $employeeIds)
+                    ->get()
+                    ->map(function (Employee $e) use ($today) {
+                        $dob = $e->date_of_birth;
+                        $next = $dob->copy()->year($today->year);
+                        if ($next->lt($today)) {
+                            $next->addYear();
+                        }
+                        $isToday = $next->isSameDay($today);
+                        return ['employee' => $e, 'next_birthday' => $next, 'is_today' => $isToday];
+                    })
+                    ->filter(function ($row) use ($today) {
+                        /** @var \Carbon\Carbon $d */
+                        $d = $row['next_birthday'];
+                        return $d->between($today, $today->copy()->addDays(30));
+                    })
+                    ->sortBy('next_birthday')
+                    ->take(8);
+            }
         }
 
         // Company country for public holidays & calendar
