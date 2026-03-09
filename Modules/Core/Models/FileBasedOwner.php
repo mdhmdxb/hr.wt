@@ -94,6 +94,12 @@ class FileBasedOwner implements Authenticatable
         return false;
     }
 
+    /** Owner does not use granular permissions API; always returns false. */
+    public function hasPermission(string $key): bool
+    {
+        return false;
+    }
+
     public function canSeeRole(): bool
     {
         return true;
